@@ -3,6 +3,11 @@ package com.msb.es.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * Elastic配置 - Yml
+ * @date 2024/5/22 21:13
+ * @author DongCL
+ */
 @Component
 @ConfigurationProperties(prefix = "ql.es",ignoreInvalidFields=true)
 public class QLElasticsearchValue {
@@ -16,5 +21,4 @@ public class QLElasticsearchValue {
     private int connectionRequestTimeOut = 500; // 获取连接的超时时间
     private int maxConnectNum = 100; // 最大连接数
     private int maxConnectPerRoute = 100; // 最大路由连接数
-
 }

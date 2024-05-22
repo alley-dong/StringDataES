@@ -63,9 +63,11 @@ public class ESUtil {
     @Resource
     private RestHighLevelClient restHighLevelClient;
 
-    private static int index_number_of_shards = 3;//默认分片数
+    //默认分片数
+    private static int index_number_of_shards = 3;
 
-    private static int index_number_of_replicas = 1;//默认副本数  单节点
+    //默认副本数  单节点
+    private static int index_number_of_replicas = 1;
 
     public void setIndexNumber(int index_number_of_shards, int index_number_of_replicas) {
         this.index_number_of_shards = index_number_of_shards;
@@ -76,12 +78,10 @@ public class ESUtil {
         return restHighLevelClient;
     }
 
-    //region 创建索引(默认分片数为3和副本数为1)
     /**
-     * 创建索引(默认分片数为1和副本数为0)
+     * 创建索引(默认分片数为3和副本数为1)
      *
      * @param clazz 根据实体自动映射es索引
-     * @throws IOException
      */
     public boolean createIndex(Class clazz) throws Exception {
         Document declaredAnnotation = (Document) clazz.getDeclaredAnnotation(Document.class);
@@ -97,7 +97,7 @@ public class ESUtil {
     }
 
     /**
-     * 创建索引(默认分片数为5和副本数为1)
+     * 创建索引(校验索引是否存在)
      *
      * @param clazz 根据实体自动映射es索引
      * @throws IOException
@@ -119,6 +119,9 @@ public class ESUtil {
         return false;
     }
 
+    /**
+     * 创建索引
+     */
     private boolean createRootIndex(String indexName, Class clazz) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(indexName);
         request.settings(Settings.builder()
@@ -134,11 +137,9 @@ public class ESUtil {
         boolean shardsAcknowledged = response.isShardsAcknowledged();
         return acknowledged || shardsAcknowledged;
     }
-    //endregion
 
-    //region 更新索引
     /**
-     * 更新索引(默认分片数为5和副本数为1)：
+     * 更新索引(默认分片数为3和副本数为1)：
      * 只能给索引上添加一些不存在的字段
      * 已经存在的映射不能改
      *
@@ -157,20 +158,14 @@ public class ESUtil {
         AcknowledgedResponse response = restHighLevelClient.indices().putMapping(request, RequestOptions.DEFAULT);
         // 指示是否所有节点都已确认请求
         boolean acknowledged = response.isAcknowledged();
-
         if (acknowledged) {
             return true;
         }
         return false;
     }
-    //endregion
 
-    //region 删除索引
     /**
      * 删除索引
-     *
-     * @param indexName
-     * @return
      */
     public boolean delIndex(String indexName) {
         boolean acknowledged = false;
@@ -184,14 +179,9 @@ public class ESUtil {
         }
         return acknowledged;
     }
-    //endregion
 
-    //region 判断索引是否存在
     /**
      * 判断索引是否存在
-     *
-     * @param indexName
-     * @return
      */
     public boolean isIndexExists(String indexName) {
         boolean exists = false;
@@ -204,44 +194,9 @@ public class ESUtil {
         }
         return exists;
     }
-    //endregion
 
-    //region 添加单条数据
     /**
      * 添加单条数据
-     * 提供多种方式：
-     * 1. json
-     * 2. map
-     * Map<String, Object> jsonMap = new HashMap<>();
-     * jsonMap.put("user", "kimchy");
-     * jsonMap.put("postDate", new Date());
-     * jsonMap.put("message", "trying out Elasticsearch");
-     * IndexRequest indexRequest = new IndexRequest("posts")
-     * .id("1").source(jsonMap);
-     * 3. builder
-     * XContentBuilder builder = XContentFactory.jsonBuilder();
-     * builder.startObject();
-     * {
-     * builder.field("user", "kimchy");
-     * builder.timeField("postDate", new Date());
-     * builder.field("message", "trying out Elasticsearch");
-     * }
-     * builder.endObject();
-     * IndexRequest indexRequest = new IndexRequest("posts")
-     * .id("1").source(builder);
-     * 4. source:
-     * IndexRequest indexRequest = new IndexRequest("posts")
-     * .id("1")
-     * .source("user", "kimchy",
-     * "postDate", new Date(),
-     * "message", "trying out Elasticsearch");
-     * <p>
-     * 报错：  Validation Failed: 1: type is missing;
-     * 加入两个jar包解决
-     * <p>
-     * 提供新增或修改的功能
-     *
-     * @return
      */
     public IndexResponse index(Object o) throws Exception {
         Document declaredAnnotation = (Document) o.getClass().getDeclaredAnnotation(Document.class);
@@ -266,9 +221,7 @@ public class ESUtil {
         IndexResponse indexResponse = restHighLevelClient.index(request, RequestOptions.DEFAULT);
         return indexResponse;
     }
-    //endregion
 
-    //region queryById
     /**
      * 根据id查询
      *
@@ -276,22 +229,12 @@ public class ESUtil {
      */
     public String queryById(String indexName, String id) throws IOException {
         GetRequest getRequest = new GetRequest(indexName, id);
-        // getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE);
-
         GetResponse getResponse = restHighLevelClient.get(getRequest, RequestOptions.DEFAULT);
-        String jsonStr = getResponse.getSourceAsString();
-        return jsonStr;
+        return getResponse.getSourceAsString();
     }
-    //endregion
 
-    //region 查询封装返回json字符串
     /**
      * 查询封装返回json字符串
-     *
-     * @param indexName
-     * @param searchSourceBuilder
-     * @return
-     * @throws IOException
      */
     public String search(String indexName, SearchSourceBuilder searchSourceBuilder) throws IOException {
         SearchRequest searchRequest = new SearchRequest(indexName);
@@ -308,19 +251,9 @@ public class ESUtil {
         }
         return jsonArray.toJSONString();
     }
-    //endregion
 
-    //region 查询封装，带分页
     /**
      * 查询封装，带分页
-     *
-     * @param searchSourceBuilder
-     * @param pageNum
-     * @param pageSize
-     * @param s
-     * @param <T>
-     * @return
-     * @throws IOException
      */
     public <T> PageInfo<T> search(SearchSourceBuilder searchSourceBuilder, int pageNum, int pageSize, Class<T> s) throws Exception {
         Document declaredAnnotation = (Document) s.getDeclaredAnnotation(Document.class);
@@ -351,17 +284,9 @@ public class ESUtil {
         page.setHasNextPage(page.getPageNum() < page.getPages());
         return page;
     }
-    //endregion
 
-    //region 查询封装，返回集合
     /**
      * 查询封装，返回集合
-     *
-     * @param searchSourceBuilder
-     * @param s
-     * @param <T>
-     * @return
-     * @throws IOException
      */
     public <T> List<T> search(SearchSourceBuilder searchSourceBuilder, Class<T> s) throws Exception {
         Document declaredAnnotation = s.getDeclaredAnnotation(Document.class);
@@ -398,9 +323,7 @@ public class ESUtil {
         List<T> list = jsonArray.toJavaList(s);
         return list;
     }
-    //endregion
 
-    //region 批量插入文档
     /**
      * 批量插入文档
      * 文档存在 则插入
@@ -450,12 +373,9 @@ public class ESUtil {
         }
         return true;
     }
-    //endregion
 
-    //region 删除文档
     /**
      * 删除文档
-     *
      * @param indexName： 索引名称
      * @param docId：     文档id
      */
@@ -475,17 +395,9 @@ public class ESUtil {
         }
         return true;
     }
-    //endregion
 
-    //region 根据json类型更新文档
     /**
      * 根据json类型更新文档
-     *
-     * @param indexName
-     * @param docId
-     * @param o
-     * @return
-     * @throws IOException
      */
     public boolean updateDoc(String indexName, String docId, Object o) throws IOException {
         UpdateRequest request = new UpdateRequest(indexName, docId);
@@ -503,17 +415,9 @@ public class ESUtil {
         }
         return false;
     }
-    //endregion
 
-    //region 根据Map类型更新文档
     /**
      * 根据Map类型更新文档
-     *
-     * @param indexName
-     * @param docId
-     * @param map
-     * @return
-     * @throws IOException
      */
     public boolean updateDoc(String indexName, String docId, Map<String, Object> map) throws IOException {
         UpdateRequest request = new UpdateRequest(indexName, docId);
@@ -532,9 +436,10 @@ public class ESUtil {
         }
         return false;
     }
-    //endregion
 
-    //region generateBuilder
+    /**
+     * generateBuilder
+     */
     public XContentBuilder generateBuilder(Class clazz) throws IOException {
         // 获取索引名称及类型
         Document doc = (Document) clazz.getAnnotation(Document.class);
@@ -545,6 +450,7 @@ public class ESUtil {
         builder.startObject("properties");
         Field[] declaredFields = clazz.getDeclaredFields();
         for (Field f : declaredFields) {
+            // 判断是否标记这个注解
             if (f.isAnnotationPresent(com.msb.es.dto.Field.class)) {
                 // 获取注解
                 com.msb.es.dto.Field declaredAnnotation =
@@ -618,9 +524,10 @@ public class ESUtil {
         builder.endObject();
         return builder;
     }
-    //endregion
 
-    //region getFieldByAnnotation
+    /**
+     * getFieldByAnnotation
+     */
     public static Field getFieldByAnnotation(Object o, Class annotationClass) {
         Field[] declaredFields = o.getClass().getDeclaredFields();
         if (declaredFields != null && declaredFields.length > 0) {
@@ -632,26 +539,17 @@ public class ESUtil {
         }
         return null;
     }
-    //endregion
 
-    //region getLowLevelClient
     /**
      * getLowLevelClient
-     *
-     * @return
      */
     public RestClient getLowLevelClient() {
         return restHighLevelClient.getLowLevelClient();
     }
-    //endregion
 
-    //region 高亮结果集 特殊处理
     /**
      * 高亮结果集 特殊处理
      * map转对象 JSONObject.parseObject(JSONObject.toJSONString(map), Content.class)
-     *
-     * @param searchResponse
-     * @param highlightField
      */
     public List<Map<String, Object>> setSearchResponse(SearchResponse searchResponse, String highlightField) {
         //解析结果
@@ -677,9 +575,7 @@ public class ESUtil {
         }
         return list;
     }
-    //endregion
 
-    //region 查询并分页
     /**
      * 查询并分页
      *
@@ -731,7 +627,6 @@ public class ESUtil {
         }
         return null;
     }
-    //endregion
 
     private boolean outResult(BulkResponse bulkResponse) {
         for (BulkItemResponse bulkItemResponse : bulkResponse) {

@@ -42,10 +42,12 @@ public class ClientController {
 
     RestHighLevelClient client = ESClient.getInstance().getHighLevelClient();
 
-    //region index
+    /**
+     * 创建索引
+     */
     @RequestMapping("/init")
     @SneakyThrows
-    public String indexInit() {
+    public String indexInitOne() {
         CreateIndexRequest request = new CreateIndexRequest("test_index2");
         request.mapping("_doc",
                 "{\n" +
@@ -60,24 +62,6 @@ public class ClientController {
                 .put("index.number_of_shards", 3)
                 .put("index.number_of_replicas", 2)
         );
-
-        //region 另一种方式
-        /*XContentBuilder builder = XContentFactory.jsonBuilder();
-        builder.startObject();
-        {
-            builder.startObject("properties");
-            {
-                builder.startObject("message");
-                {
-                    builder.field("type", "text");
-                }
-                builder.endObject();
-            }
-            builder.endObject();
-        }
-        builder.endObject();
-        request.mapping(builder);*/
-        //endregion
         CreateIndexResponse createIndexResponse = client.indices().create(request, RequestOptions.DEFAULT);
         if (createIndexResponse.isAcknowledged()) {
             System.out.println("创建index成功!");
@@ -86,15 +70,16 @@ public class ClientController {
         }
         return createIndexResponse.index();
     }
-    //endregion
 
-    //region 分页查询
+
+    /**
+     * 分页查询
+     */
     @RequestMapping("/carInfo")
     @SneakyThrows
     public ResultDto carInfo(@RequestParam(value = "keyword", required = true) String keyword,
                              @RequestParam(value = "from", required = true) Integer from,
                              @RequestParam(value = "size", required = true) Integer size) {
-
         SearchRequest searchRequest = new SearchRequest("msb_auto");
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(QueryBuilders.matchQuery("series_name", keyword));
@@ -102,14 +87,16 @@ public class ClientController {
         searchSourceBuilder.size(size);
         searchRequest.source(searchSourceBuilder);
         SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-//        ESClient.getInstance().closeClient();
         ResultDto res = new ResultDto();
         res.setData(searchResponse.getHits().getHits());
         return res;
     }
-    //endregion
 
-    //region 滚动查询
+    /**
+     * 滚动查询
+     * 表示这是后续的滚动请求，使用已有的 scrollId 继续从上一次的位置获取下一批结果。
+     * 例如从一个大数据集中分批获取数据进行处理或展示。通过滚动查询，可以避免传统分页在大数据量下的性能问题。
+     */
     @RequestMapping("/scroll")
     @SneakyThrows
     public ResultDto scroll(String scrollId) {
@@ -117,28 +104,22 @@ public class ClientController {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.size(2);
         searchRequest.source(searchSourceBuilder);
-
         searchRequest.scroll(TimeValue.timeValueMinutes(1L));
-//        SearchResponse searchResponse = null;
-//        if (scrollId == null || "".equals(scrollId)) {
-//            searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-//        } else {
-//            searchResponse = client.scroll(new SearchScrollRequest(scrollId), RequestOptions.DEFAULT);
-//        }
         SearchResponse searchResponse = scrollId == null
                 ? client.search(searchRequest, RequestOptions.DEFAULT)
                 : client.scroll(new SearchScrollRequest(scrollId), RequestOptions.DEFAULT);
         scrollId = searchResponse.getScrollId();
         SearchHits hits = searchResponse.getHits();
-//        ESClient.getInstance().closeClient();
         ResultDto res = new ResultDto();
         res.setTag(scrollId);
         res.setData(hits.getHits());
         return res;
     }
-    //endregion
 
-    //region fuzzy
+
+    /**
+     * fuzzy 模糊查询
+     */
     @RequestMapping("/fuzzy")
     @SneakyThrows
     public SearchHit[] fuzzy(String name) {
@@ -149,14 +130,14 @@ public class ClientController {
         SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
         return response.getHits().getHits();
     }
-    //endregion
 
-    //region Bulk
+
+    /**
+     * Bulk 批量操作
+     */
     @RequestMapping("/bulk")
     @SneakyThrows
     public ResultDto bulk() {
-
-        SearchRequest searchRequest = new SearchRequest("msb_auto");
         BulkRequest request = new BulkRequest();
         request.add(new DeleteRequest("msb_auto", "13"));
         request.add(new UpdateRequest("msb_auto", "22")
@@ -166,13 +147,13 @@ public class ClientController {
         BulkResponse bulkResponse = client.bulk(request, RequestOptions.DEFAULT);
         return null;
     }
-    //endregion
 
-    //region Search template
+    /**
+     * template
+     */
     @RequestMapping("/templateSearch")
     @SneakyThrows
     public ResultDto templateSearch() {
-
         //region 创建模板并缓存 作用域为整个集群
         Request scriptRequest = new Request("POST", "_scripts/test_template_search");
         scriptRequest.setJsonEntity(
@@ -213,9 +194,11 @@ public class ClientController {
         SearchTemplateResponse response = client.searchTemplate(request, RequestOptions.DEFAULT);
         return null;
     }
-    //endregion
 
-    //region Multi-Search
+
+    /**
+     * Multi-Search 多条件查询
+     */
     @RequestMapping("/multiSearch")
     @SneakyThrows
     public ResultDto multiSearch() {
@@ -236,9 +219,10 @@ public class ClientController {
         MultiSearchResponse response = client.msearch(request, RequestOptions.DEFAULT);
         return null;
     }
-    //endregion
 
-    //region Bool Request
+    /**
+     * Bool Request 组合查询
+     */
     @RequestMapping("/boolSearch")
     @SneakyThrows
     public ResultDto boolSearch() {
@@ -258,6 +242,5 @@ public class ClientController {
         MultiSearchResponse response = client.msearch(request, RequestOptions.DEFAULT);
         return null;
     }
-    //endregion
 
 }
